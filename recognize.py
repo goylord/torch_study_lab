@@ -1,4 +1,5 @@
 import numpy as np
+import torch
 from torch import nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -6,10 +7,13 @@ from torch.utils.data import DataLoader
 import json
 import gzip
 
+
+TRAIN_NUM = 10
+BATCH_SIZE = 20
+
 filepath = "./data/mnist.json.gz"
 print("loading dataset...")
 data = json.load(gzip.open(filepath))
-print(len(data))
 
 train_data, val_set, eval_data = data
 result_data = np.array(train_data[1])
@@ -36,15 +40,24 @@ net = Net()
 
 optimizer = optim.Adam(net.parameters(), lr = 0.01)
 loss_calc = nn.CrossEntropyLoss()
-for one_data in DataLoader(train_data, batch_size=20, shuffle=True):
-  optimizer.zero_grad()
-  one_data = one_data.float()
-  need_train = one_data[:, :-1]
-  need_train = need_train.view(20, 1, 28, 28)
-  result = one_data[:, -1]
-  out = net(need_train)
-  loss = loss_calc(out, result.long())
-  pred = out.data.max(1, keepdim=True)[1]
-  print("损失函数", loss)
-  loss.backward()
-  optimizer.step()
+
+for i in range(TRAIN_NUM):
+  for one_data in DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True):
+    optimizer.zero_grad()
+    one_data = one_data.float()
+    need_train = one_data[:, :-1]
+    need_train = need_train.view(BATCH_SIZE, 1, 28, 28)
+    result = one_data[:, -1]
+    out = net(need_train)
+    loss = loss_calc(out, result.long())
+    print("损失函数", loss)
+    loss.backward()
+    optimizer.step()
+
+
+test_data, test_result = val_set
+test_data = np.array(test_data)
+for i in range(len(test_data)):
+  test_out = net(torch.FloatTensor(test_data[i]).view(1, 1, 28, 28))
+  pred = test_out.data.max(1, keepdim=True)[1]
+  print("预测值:{}, 真实值: {}\n".format(pred, test_result[i]))
